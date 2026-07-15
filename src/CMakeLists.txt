@@ -494,7 +494,7 @@ if (ENABLE_PYTHON)
                   set(PYTHON_SUPPORT ON)
             endif (NOT PYTHONLIBS_VERSION_STRING VERSION_LESS 3.5)
       endif (PYTHONLIBS_FOUND)
-#  TODO Check for Pyro4?
+#  TODO Check for Pyro5?
 endif (ENABLE_PYTHON)
 
 ##
