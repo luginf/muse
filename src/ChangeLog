@@ -1,3 +1,5 @@
+22.07.2026
+    *** MusE 4.3.0 ***
 15.07.2026
     * Upgraded: Pyro4 support removed and upgraded to full native Pyro5. (Tim)
     - There was also a crash that has been fixed. We now get and release the GIL.
