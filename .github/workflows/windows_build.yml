@@ -146,28 +146,29 @@ jobs:
       # libwinpthread, Qt5*.dll not covered by windeployqt, libjack64,
       # liblo, lilv-0, sord-0, serd-0, sndfile, samplerate, ...) live.
       # The msys2 mingw64 shell already has the right PATH.
+      # -D enables MusE's own verbose debug logging (more visibility into
+      # exactly where startup gets to). -d ("no threads, no RT") is
+      # deliberately NOT used - that would bypass the Audio/Thread pipe
+      # code path this whole branch exists to exercise.
+      #
+      # Uses coreutils `timeout` instead of manual background+wait+kill:
+      # a previous version of this step used `pid=$!; ...; wait "$pid"`
+      # and got a bare `exit code 127` with no crash info, which is
+      # ambiguous under MSYS's POSIX layer wrapping a native Windows
+      # process. `timeout`'s own exit code (124 = still running when the
+      # deadline hit, i.e. success for this test) is unambiguous.
       - name: Smoke test (launch with dummy audio driver, 20s)
         if: steps.summary.outputs.built == 'true'
         continue-on-error: true
         run: |
-          # This shell runs with -e (errexit) by default (msys2 action's
-          # bash wrapper). We want to inspect the launched process's exit
-          # status ourselves rather than have any single non-zero status
-          # abort the step before the diagnostics below run.
           set +e
           cd build/muse
-          ./muse4.exe -a -F -C > smoke_stdout.log 2> smoke_stderr.log &
-          pid=$!
-          sleep 20
-          kill -0 "$pid" 2>/dev/null
-          still_alive=$?
-          if [ "$still_alive" -eq 0 ]; then
-            echo "Process still running after 20s (did not crash immediately) - stopping it."
-            kill -9 "$pid" 2>/dev/null
+          timeout 20 ./muse4.exe -a -F -C -D > smoke_stdout.log 2> smoke_stderr.log
+          code=$?
+          if [ "$code" -eq 124 ]; then
+            echo "Process was still running when the 20s timeout hit (did not crash) - success."
             echo "still_running=true" >> "$GITHUB_OUTPUT"
           else
-            wait "$pid"
-            code=$?
             echo "Process exited on its own with exit code $code - see logs."
             echo "still_running=false" >> "$GITHUB_OUTPUT"
           fi
