@@ -62,6 +62,16 @@ jobs:
       # crossing a DLL boundary needs an explicit dllexport/dllimport, which
       # this codebase doesn't have. Building everything statically into
       # muse4.exe sidesteps that entirely instead of annotating every class.
+      #
+      # ENABLE_LV2=OFF: lilv_world_new()/lilv_world_load_all() (lv2host.cpp)
+      # crashes muse4.exe on startup under MinGW (exit code 127) - a lilv/
+      # serd/sord issue, unrelated to the pipe/socket IPC this branch is
+      # about. LV2 is a cross-platform standard, not Linux-specific, but its
+      # plugin ecosystem is overwhelmingly Linux/BSD in practice; VST
+      # (ENABLE_VST_NATIVE, already on) is what Windows users actually use.
+      # Disabling it here sidesteps the crash without losing anything that
+      # matters for a first working Windows build. Worth revisiting later
+      # if someone wants LV2 support specifically on Windows.
       - name: Configure (CMake)
         run: |
           mkdir build
@@ -77,7 +87,7 @@ jobs:
             -DENABLE_DSSI=OFF \
             -DENABLE_VST_NATIVE=ON \
             -DENABLE_VST_VESTIGE=ON \
-            -DENABLE_LV2=ON \
+            -DENABLE_LV2=OFF \
             -DENABLE_LV2_GTK2=OFF \
             -DENABLE_FLUID=ON \
             -DENABLE_RUBBERBAND=OFF \
