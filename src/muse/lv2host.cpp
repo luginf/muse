@@ -2288,7 +2288,10 @@ void LV2Synth::lv2ui_ShowNativeGui(LV2PluginWrapper_State *state, bool bShow, bo
                     else
                     {
                         if (uiW) {
-                            QWindow *xwin = QWindow::fromWinId(reinterpret_cast<unsigned long>(uiW));
+                            // WId is quintptr (pointer-sized). unsigned long is only
+                            // 32 bits on LLP64 targets (Windows/MinGW even in 64-bit
+                            // builds), which would truncate the handle there.
+                            QWindow *xwin = QWindow::fromWinId(reinterpret_cast<quintptr>(uiW));
                             ewWin = QWidget::createWindowContainer(xwin, win);
                             state->pluginQWindow = xwin;
                             win->setCentralWidget(ewWin);
