@@ -24,6 +24,7 @@
 
 #include "muse_math.h"
 #include <errno.h>
+#include "platform_pipe.h"
 
 #include "song.h"
 #include "midi.h"
@@ -774,7 +775,7 @@ void buildMidiEventList(EventList* del, const MPEventList& el, MidiTrack* track,
 
 void Audio::midiPortsChanged()
       {
-      write(sigFd, "P", 1);
+      muse_pipe_write(sigFd, "P", 1);
       }
 
 //---------------------------------------------------------

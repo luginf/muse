@@ -21,6 +21,13 @@
 //
 //=========================================================
 
+#ifdef _WIN32
+// Must be included before any header that may drag in <windows.h>
+// (e.g. via Qt), otherwise windows.h pulls in the legacy winsock.h
+// and conflicts with winsock2.h.
+#include <winsock2.h>
+#endif
+
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QCommandLineOption>
@@ -569,6 +576,18 @@ CommandLineParseResult parseCommandLine(
 
 int main(int argc, char* argv[])
 {
+#ifdef _WIN32
+      // Winsock must be explicitly initialized before any socket call.
+      // We use raw Winsock sockets (not just Qt's) for the internal
+      // GUI <-> audio/sequencer thread messaging, see platform_pipe.h
+      // and poll_win.c.
+      WSADATA wsaData;
+      if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+            fprintf(stderr, "FATAL: WSAStartup failed, cannot continue\n");
+            return -1;
+            }
+#endif
+
       // Get the separator used for file paths.
       const QChar list_separator = QDir::listSeparator();
 
@@ -1848,6 +1867,11 @@ int main(int argc, char* argv[])
 
       if(MusEGlobal::debugMsg)
         fprintf(stderr, "Finished! Exiting main, return value:%d\n", rv);
+
+#ifdef _WIN32
+      WSACleanup();
+#endif
+
       return rv;
       
       }

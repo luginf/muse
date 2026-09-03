@@ -101,3 +101,57 @@ It is available in it's original formatting here:
     # Place muse_pack.sh in /usr/src
     ./muse_pack.sh
 
+## Known startup issue on Windows and the `windows_port` branch fix (2026-09)
+
+A previous porting attempt (see issue #1237) reported that MusE compiles
+with MinGW but does not start, even with Jack for Windows installed.
+Reading the GUI <-> audio/sequencer thread messaging code (thread.cpp,
+audio.cpp, seqmsg.cpp, song.cpp, midi.cpp) turned up concrete, code-level
+causes that plausibly explain this:
+
+  - `Thread`, `Audio` and `Song::seqSignal()` communicate over anonymous
+    pipes created with `_pipe()` on Windows. `QSocketNotifier`
+    (used in app.cpp to wake the GUI on audio-thread messages) only
+    supports *sockets* on Windows, not arbitrary pipe descriptors -
+    this is a documented Qt platform restriction, so the GUI is never
+    notified of messages coming back from the audio thread.
+  - The non-blocking mode set on the audio->GUI pipe write end via
+    `fcntl(F_SETFL, O_NONBLOCK)` was explicitly skipped under `_WIN32`
+    (fcntl does not support this on Windows pipes), leaving the
+    realtime audio callback able to block on a blocking pipe write.
+  - Nothing in the codebase ever called `WSAStartup()`, yet
+    `poll_win.c` (already used unconditionally on `_WIN32` by
+    thread.cpp) makes raw Winsock calls (`recv`, `select`,
+    `WSAEnumNetworkEvents`). Verified with a standalone MinGW build run
+    under Wine: without `WSAStartup()`, `WSAEnumNetworkEvents()` fails,
+    which makes `poll_win.c`'s socket detection silently treat every
+    fd as a non-socket handle.
+
+The `windows_port` branch replaces the Windows pipe implementation with
+a loopback TCP socket pair (`src/muse/platform_pipe.h`, `muse_pipe()` /
+`muse_pipe_read()` / `muse_pipe_write()` / `muse_pipe_set_nonblock()`),
+which is directly usable with `QSocketNotifier`, works correctly with
+`poll_win.c`'s existing (and already correct) socket-polling path, and
+supports proper non-blocking mode via `ioctlsocket(FIONBIO)`. It also
+adds `WSAStartup()`/`WSACleanup()` calls around `main()`.
+
+This was verified with the MinGW-w64 cross-compiler and Wine:
+`muse_pipe()` + `poll()` correctly detect data availability end-to-end,
+and reproducibly fail with `WSAENOTINITIALISED`-type errors without
+`WSAStartup()`. What was **not** verified (no access to real Windows,
+and Wine's own pipe/`WaitForMultipleObjects` behaviour does not
+reliably reproduce real Windows semantics here) is whether the
+*original* anonymous-pipe + `WaitForMultipleObjects` path in
+`poll_win.c` actually failed to signal readability on real Windows -
+that part of the original hypothesis remains unconfirmed. The
+QSocketNotifier and O_NONBLOCK issues above do not depend on that
+question and are the primary justification for this change.
+
+This is groundwork, not a finished port: it has not been build- or
+run-tested on real Windows. If you pick this up, the next steps are
+(1) a real MinGW/MSYS2 build against Qt5, and (2) confirming the app
+now reaches a usable UI and can start/stop audio without hanging. The
+MIDI backend question (no ALSA/JACK-MIDI equivalent readily available
+on native Windows) raised in issue #1237 is a separate, larger piece
+of work not addressed here.
+

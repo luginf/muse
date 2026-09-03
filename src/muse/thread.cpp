@@ -24,7 +24,9 @@
 #include "thread.h"
 #include <stdio.h>
 #include <stdlib.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #ifdef _WIN32
 #include "poll.h"
 #include "poll_win.c"
@@ -36,10 +38,7 @@
 
 #include "globals.h"
 #include "errno.h"
-
-#ifdef _WIN32
-#define pipe(fds) _pipe(fds, 4096, _O_BINARY)
-#endif
+#include "platform_pipe.h"
 
 namespace MusECore {
 
@@ -183,14 +182,14 @@ Thread::Thread(const char* s)
 
       // create message channels
       int filedes[2];         // 0 - reading   1 - writing
-      if (pipe(filedes) == -1) {
+      if (muse_pipe(filedes) == -1) {
             perror("thread:creating pipe");
             exit(-1);
             }
       toThreadFdr = filedes[0];
       toThreadFdw = filedes[1];
 
-      if (pipe(filedes) == -1) {
+      if (muse_pipe(filedes) == -1) {
             perror("thread: creating pipe");
             exit(-1);
             }
@@ -337,7 +336,7 @@ bool Thread::sendMsg(const ThreadMsg* m)
 {
       if (_running) 
       {
-            int rv = write(toThreadFdw, &m, sizeof(ThreadMsg*));
+            int rv = muse_pipe_write(toThreadFdw, &m, sizeof(ThreadMsg*));
             if (rv != sizeof(ThreadMsg*)) {
                   perror("Thread::sendMessage(): write pipe failed");
                   return true;
@@ -345,7 +344,7 @@ bool Thread::sendMsg(const ThreadMsg* m)
 
            // wait for sequencer to finish operation
             char c;
-            rv = read(fromThreadFdr, &c, 1);
+            rv = muse_pipe_read(fromThreadFdr, &c, 1);
             if (rv != 1) 
             {
                   perror("Thread::sendMessage(): read pipe failed");
@@ -375,7 +374,7 @@ bool Thread::sendMsg(const ThreadMsg* m)
 
 bool Thread::sendMsg1(const void* m, int n)
       {
-      int rv = write(toThreadFdw, m, n);
+      int rv = muse_pipe_write(toThreadFdw, m, n);
       if (rv != n) {
             perror("Thread::sendMessage1(): write pipe failed");
             return true;
@@ -390,13 +389,13 @@ bool Thread::sendMsg1(const void* m, int n)
 void Thread::readMsg()
       {
       ThreadMsg* p;
-      if (read(toThreadFdr, &p, sizeof(p)) != sizeof(p)) {
+      if (muse_pipe_read(toThreadFdr, &p, sizeof(p)) != sizeof(p)) {
             perror("Thread::readMessage(): read pipe failed");
             exit(-1);
             }
       processMsg(p);
       char c = 'x';
-      int rv = write(fromThreadFdw, &c, 1);
+      int rv = muse_pipe_write(fromThreadFdw, &c, 1);
       if (rv != 1)
             perror("Thread::readMessage(): write pipe failed");
       //int c = p->serialNo; DELETETHIS 4
@@ -413,7 +412,7 @@ void Thread::readMsg()
 void Thread::readMsg1(int size)
       {
       char buffer[size];
-      int n = read(toThreadFdr, buffer, size);
+      int n = muse_pipe_read(toThreadFdr, buffer, size);
       if (n != size) {
             fprintf(stderr, "Thread::readMsg1(): read pipe failed, get %d, expected %d: %s\n",
                n, size, strerror(errno));

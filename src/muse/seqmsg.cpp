@@ -22,6 +22,7 @@
 //=========================================================
 
 #include <stdio.h>
+#include "platform_pipe.h"
 
 #include "song.h"
 #include "midiseq.h"
@@ -65,7 +66,7 @@ void Audio::sendMsg(AudioMsg* m)
             msg = m;
             // wait for next audio "process" call to finish operation
             int no = -1;
-            int rv = read(fromThreadFdr, &no, sizeof(int));
+            int rv = muse_pipe_read(fromThreadFdr, &no, sizeof(int));
             if (rv != sizeof(int))
                   perror("Audio: read pipe failed");
             else if (no != (sno-1)) {

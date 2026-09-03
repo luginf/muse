@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include "platform_pipe.h"
 //#include <iostream>
 
 #include <QDir>
@@ -4971,7 +4972,7 @@ void Song::seqSignal(int fd)
       const int buf_size = 256;  
       char buffer[buf_size]; 
 
-      int n = ::read(fd, buffer, buf_size);
+      int n = muse_pipe_read(fd, buffer, buf_size);
       if (n < 0) {
             fprintf(stderr, "Song: seqSignal(): READ PIPE failed: %s\n",
                strerror(errno));
