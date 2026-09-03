@@ -125,6 +125,19 @@ jobs:
           cd build/muse
           windeployqt.exe muse4.exe || true
 
+      # windeployqt only handles Qt's own DLLs. MusE's internal "modules"
+      # (xml_module, evdata_module, plugin_scan_module, etc. - see
+      # libs/*/CMakeLists.txt and their install(DESTINATION
+      # ${MusE_MODULES_DIR})) end up as separate .dll files scattered
+      # across the build tree rather than next to muse4.exe. On Linux
+      # this doesn't matter (rpath/install layout handles it); on
+      # Windows, the exe's own directory is the first place the loader
+      # looks, so gather every built .dll there for this smoke test.
+      - name: Collect module DLLs next to the executable
+        if: steps.summary.outputs.built == 'true'
+        run: |
+          find build -name "*.dll" -not -path "build/muse/*" -exec cp -n {} build/muse/ \;
+
       # NOTE: this deliberately stays in the msys2 {0} shell (the job
       # default), not pwsh. The first attempt used pwsh/Start-Process and
       # the exe exited immediately with code -1073741515 (0xC0000135 =
