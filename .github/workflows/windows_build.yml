@@ -1,0 +1,154 @@
+name: Windows build (MSYS2/MinGW) [experimental]
+
+# Manual trigger only: this is an experimental build used to validate the
+# Windows porting groundwork (see src/README.win32 and the windows_port
+# branch). It is not wired to run on every push, since it is not expected
+# to succeed unattended yet.
+on:
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: RelWithDebInfo
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Package list follows src/README.win32, updated for what MSYS2
+      # ships as prebuilt mingw-w64 packages today (2026) instead of the
+      # makepkg-mingw source builds that file describes for liblo/serd/
+      # sord/lv2/sratom/lilv/jack2 - those are all prebuilt now.
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel
+            git
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-svg
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-translations
+            mingw-w64-x86_64-ladspa-sdk
+            mingw-w64-x86_64-libsndfile
+            mingw-w64-x86_64-libsamplerate
+            mingw-w64-x86_64-fluidsynth
+            mingw-w64-x86_64-liblo
+            mingw-w64-x86_64-lv2
+            mingw-w64-x86_64-serd
+            mingw-w64-x86_64-sord
+            mingw-w64-x86_64-sratom
+            mingw-w64-x86_64-lilv
+            mingw-w64-x86_64-rtaudio
+            mingw-w64-x86_64-jack2
+
+      - name: Configure (CMake)
+        run: |
+          mkdir build
+          cd build
+          cmake ../src \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DENABLE_RTAUDIO=ON \
+            -DENABLE_ALSA=OFF \
+            -DENABLE_LASH=OFF \
+            -DENABLE_LRDF=OFF \
+            -DENABLE_OSC=ON \
+            -DENABLE_DSSI=OFF \
+            -DENABLE_VST_NATIVE=ON \
+            -DENABLE_VST_VESTIGE=ON \
+            -DENABLE_LV2=ON \
+            -DENABLE_LV2_GTK2=OFF \
+            -DENABLE_FLUID=ON \
+            -DENABLE_RUBBERBAND=OFF \
+            -DENABLE_MIDNAM=ON \
+            -DENABLE_INSTPATCH=OFF \
+            -DENABLE_PYTHON=OFF
+
+      - name: Build
+        run: |
+          cd build
+          ninja -k0 2>&1 | tee build.log
+        continue-on-error: true
+
+      - name: Summarize build result
+        id: summary
+        run: |
+          cd build
+          if [ -f muse/muse4.exe ]; then
+            echo "built=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "built=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "---- last 200 lines of build.log ----"
+          tail -n 200 build.log || true
+          echo "---- FAILED lines ----"
+          grep -E "FAILED|error:" build.log || echo "(none found)"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-log
+          path: build/build.log
+
+      # Smoke test: launch the dummy audio driver briefly and confirm the
+      # process does not crash/hang during Audio/Thread pipe setup and
+      # MIDI init - this is the specific code path touched by the
+      # windows_port branch (see src/muse/platform_pipe.h). It is not a
+      # real UI test, and GitHub's Windows runner has no interactive
+      # desktop, so a full GUI smoke test is not attempted here.
+      - name: Package runtime deps (windeployqt)
+        if: steps.summary.outputs.built == 'true'
+        run: |
+          cd build/muse
+          windeployqt.exe muse4.exe || true
+
+      - name: Smoke test (launch with dummy audio driver, 20s)
+        if: steps.summary.outputs.built == 'true'
+        shell: pwsh
+        run: |
+          $exe = "build\muse\muse4.exe"
+          $p = Start-Process -FilePath $exe -ArgumentList "-a","-F","-C" -PassThru -RedirectStandardOutput "smoke_stdout.log" -RedirectStandardError "smoke_stderr.log"
+          Start-Sleep -Seconds 20
+          $stillRunning = -not $p.HasExited
+          if ($stillRunning) {
+            Write-Host "Process still running after 20s (did not crash immediately) - stopping it."
+            Stop-Process -Id $p.Id -Force
+          } else {
+            Write-Host "Process exited on its own with code $($p.ExitCode) - see logs."
+          }
+          Write-Host "---- stdout ----"
+          Get-Content "smoke_stdout.log" -ErrorAction SilentlyContinue
+          Write-Host "---- stderr ----"
+          Get-Content "smoke_stderr.log" -ErrorAction SilentlyContinue
+          echo "still_running=$stillRunning" >> $env:GITHUB_OUTPUT
+
+      - name: Upload smoke test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-test-logs
+          path: |
+            smoke_stdout.log
+            smoke_stderr.log
+          if-no-files-found: ignore
+
+      - name: Upload built executable
+        if: steps.summary.outputs.built == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: muse-windows-x86_64
+          path: build/muse/*.exe
