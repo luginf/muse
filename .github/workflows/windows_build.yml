@@ -135,14 +135,22 @@ jobs:
       # The msys2 mingw64 shell already has the right PATH.
       - name: Smoke test (launch with dummy audio driver, 20s)
         if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
         run: |
+          # This shell runs with -e (errexit) by default (msys2 action's
+          # bash wrapper). We want to inspect the launched process's exit
+          # status ourselves rather than have any single non-zero status
+          # abort the step before the diagnostics below run.
+          set +e
           cd build/muse
           ./muse4.exe -a -F -C > smoke_stdout.log 2> smoke_stderr.log &
           pid=$!
           sleep 20
-          if kill -0 "$pid" 2>/dev/null; then
+          kill -0 "$pid" 2>/dev/null
+          still_alive=$?
+          if [ "$still_alive" -eq 0 ]; then
             echo "Process still running after 20s (did not crash immediately) - stopping it."
-            kill -9 "$pid"
+            kill -9 "$pid" 2>/dev/null
             echo "still_running=true" >> "$GITHUB_OUTPUT"
           else
             wait "$pid"
@@ -151,10 +159,11 @@ jobs:
             echo "still_running=false" >> "$GITHUB_OUTPUT"
           fi
           echo "---- stdout ----"
-          cat smoke_stdout.log || true
+          cat smoke_stdout.log
           echo "---- stderr ----"
-          cat smoke_stderr.log || true
+          cat smoke_stderr.log
           cp smoke_stdout.log smoke_stderr.log ../../
+          exit 0
 
       - name: Upload smoke test logs
         if: always()
@@ -167,7 +176,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload built executable
-        if: steps.summary.outputs.built == 'true'
+        if: always() && steps.summary.outputs.built == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: muse-windows-x86_64
