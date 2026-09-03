@@ -54,7 +54,14 @@ jobs:
             mingw-w64-x86_64-lilv
             mingw-w64-x86_64-rtaudio
             mingw-w64-x86_64-jack2
+            mingw-w64-x86_64-dlfcn
 
+      # MODULES_BUILD_STATIC=ON: on Linux the internal "modules" (widgets,
+      # master, driver, etc.) are built as .so libraries, which works because
+      # ELF exports symbols by default. Windows DLLs don't - every symbol
+      # crossing a DLL boundary needs an explicit dllexport/dllimport, which
+      # this codebase doesn't have. Building everything statically into
+      # muse4.exe sidesteps that entirely instead of annotating every class.
       - name: Configure (CMake)
         run: |
           mkdir build
@@ -76,7 +83,8 @@ jobs:
             -DENABLE_RUBBERBAND=OFF \
             -DENABLE_MIDNAM=ON \
             -DENABLE_INSTPATCH=OFF \
-            -DENABLE_PYTHON=OFF
+            -DENABLE_PYTHON=OFF \
+            -DMODULES_BUILD_STATIC=ON
 
       - name: Build
         run: |
