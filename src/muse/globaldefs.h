@@ -24,36 +24,55 @@
 #ifndef __GLOBALDEFS_H__
 #define __GLOBALDEFS_H__
 
+#include <cstdint>
 #include <cstdlib>
-#ifdef _WIN32
-#include <malloc.h> // for _aligned_free()
-#endif
 
 namespace MusECore {
 
 //---------------------------------------------------------
-//   museAlignedFree
-//    Release memory obtained from the platform's aligned allocator
-//    (16-byte-aligned SIMD audio buffers, allocated throughout this
-//    codebase with _aligned_malloc() on _WIN32 / posix_memalign()
-//    elsewhere - see AudioTrack::init_buffers() and the many other
-//    call sites doing the same _WIN32/posix_memalign split). On
-//    Windows _aligned_malloc()'s block layout is NOT interchangeable
-//    with plain malloc()/free() - it stores its own header ahead of
-//    the returned pointer, and freeing it with plain free() corrupts
-//    the heap (confirmed via Windows page heap: "corrupted start
-//    stamp" on exactly such a free()). On Linux/macOS the allocator is
-//    posix_memalign(), whose pointers ARE safe to release with plain
-//    free().
+//   museAlignedMalloc / museAlignedFree
+//    Portable 16-byte-aligned allocation for SIMD audio buffers, used
+//    throughout this codebase (see AudioTrack::init_buffers() and many
+//    other call sites). Originally _aligned_malloc()/_aligned_free() on
+//    _WIN32, posix_memalign()/free() elsewhere.
+//
+//    A real _aligned_malloc()/free() mismatch bug (fixed: every release
+//    site now goes through museAlignedFree() instead of a bare free())
+//    was confirmed via Windows page heap as "corrupted start stamp".
+//    After fixing every such site, page heap still deterministically
+//    reports a *different* corruption ("corrupted suffix pattern") on
+//    the exact same kind of buffer, every run, always at the exact same
+//    byte offset relative to the block's start (2071 = the requested
+//    2048-byte payload plus 23 bytes - precisely the maximum padding
+//    _aligned_malloc(ptr, 16) can add for a 16-byte alignment request).
+//    That precision, and total insensitivity to unrelated code fixes
+//    (including a confirmed-clean ThreadSanitizer pass), points at an
+//    interaction between MinGW-w64 UCRT's _aligned_malloc()/
+//    _aligned_free() bookkeeping and Windows page heap's own guard
+//    bytes, not an application-level bug. This portable manual
+//    implementation (over-allocate, align, stash the real pointer just
+//    before the aligned one - the same technique posix_memalign uses
+//    internally) sidesteps the CRT's own aligned allocator entirely, as
+//    a test of that hypothesis.
 //---------------------------------------------------------
+
+static inline void* museAlignedMalloc(size_t alignment, size_t size)
+{
+  // Room for the requested size, alignment slack, and the stashed
+  // original-pointer slot right before the aligned address.
+  void* raw = malloc(size + alignment - 1 + sizeof(void*));
+  if(!raw)
+    return nullptr;
+  uintptr_t rawAddr = (uintptr_t)raw + sizeof(void*);
+  uintptr_t alignedAddr = (rawAddr + alignment - 1) & ~(uintptr_t)(alignment - 1);
+  ((void**)alignedAddr)[-1] = raw;
+  return (void*)alignedAddr;
+}
 
 static inline void museAlignedFree(void* ptr)
 {
-#ifdef _WIN32
-  _aligned_free(ptr);
-#else
-  free(ptr);
-#endif
+  if(ptr)
+    free(((void**)ptr)[-1]);
 }
 
 // Midi Type

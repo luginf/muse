@@ -717,21 +717,12 @@ bool VstNativeSynthIF::init(VstNativeSynth* s)
         _audioOutBuffers = new float*[outports];
         for(unsigned long k = 0; k < outports; ++k)
         {
-#ifdef _WIN32
-          _audioOutBuffers[k] = (float *) _aligned_malloc(16, sizeof(float *) * MusEGlobal::segmentSize);
+          _audioOutBuffers[k] = (float *) museAlignedMalloc(16, sizeof(float) * MusEGlobal::segmentSize);
           if(_audioOutBuffers[k] == nullptr)
           {
-             fprintf(stderr, "ERROR: VstNativeSynthIF::init: _aligned_malloc returned error: NULL. Aborting!\n");
+             fprintf(stderr, "ERROR: VstNativeSynthIF::init: museAlignedMalloc returned error: NULL. Aborting!\n");
              abort();
           }
-#else
-          int rv = posix_memalign((void**)&_audioOutBuffers[k], 16, sizeof(float) * MusEGlobal::segmentSize);
-          if(rv != 0)
-          {
-            fprintf(stderr, "ERROR: VstNativeSynthIF::init: posix_memalign returned error:%d. Aborting!\n", rv);
-            abort();
-          }
-#endif
           if(MusEGlobal::config.useDenormalBias)
           {
             for(unsigned q = 0; q < MusEGlobal::segmentSize; ++q)
@@ -748,21 +739,12 @@ bool VstNativeSynthIF::init(VstNativeSynth* s)
         _audioInBuffers = new float*[inports];
         for(unsigned long k = 0; k < inports; ++k)
         {
-#ifdef _WIN32
-          _audioInBuffers[k] = (float *) _aligned_malloc(16, sizeof(float *) * MusEGlobal::segmentSize);
+          _audioInBuffers[k] = (float *) museAlignedMalloc(16, sizeof(float) * MusEGlobal::segmentSize);
           if(_audioInBuffers[k] == nullptr)
           {
-             fprintf(stderr, "ERROR: VstNativeSynthIF::init: _aligned_malloc returned error: NULL. Aborting!\n");
+             fprintf(stderr, "ERROR: VstNativeSynthIF::init: museAlignedMalloc returned error: NULL. Aborting!\n");
              abort();
           }
-#else
-          int rv = posix_memalign((void**)&_audioInBuffers[k], 16, sizeof(float) * MusEGlobal::segmentSize);
-          if(rv != 0)
-          {
-            fprintf(stderr, "ERROR: VstNativeSynthIF::init: posix_memalign returned error:%d. Aborting!\n", rv);
-            abort();
-          }
-#endif
           if(MusEGlobal::config.useDenormalBias)
           {
             for(unsigned q = 0; q < MusEGlobal::segmentSize; ++q)
@@ -772,21 +754,12 @@ bool VstNativeSynthIF::init(VstNativeSynth* s)
             memset(_audioInBuffers[k], 0, sizeof(float) * MusEGlobal::segmentSize);
         }
         
-#ifdef _WIN32
-        _audioInSilenceBuf = (float *) _aligned_malloc(16, sizeof(float *) * MusEGlobal::segmentSize);
+        _audioInSilenceBuf = (float *) museAlignedMalloc(16, sizeof(float) * MusEGlobal::segmentSize);
         if(_audioInSilenceBuf == nullptr)
         {
-           fprintf(stderr, "ERROR: VstNativeSynthIF::init: _aligned_malloc returned error: NULL. Aborting!\n");
+           fprintf(stderr, "ERROR: VstNativeSynthIF::init: museAlignedMalloc returned error: NULL. Aborting!\n");
            abort();
         }
-#else
-        int rv = posix_memalign((void**)&_audioInSilenceBuf, 16, sizeof(float) * MusEGlobal::segmentSize);
-        if(rv != 0)
-        {
-          fprintf(stderr, "ERROR: VstNativeSynthIF::init: posix_memalign returned error:%d. Aborting!\n", rv);
-          abort();
-        }
-#endif
         if(MusEGlobal::config.useDenormalBias)
         {
           for(unsigned q = 0; q < MusEGlobal::segmentSize; ++q)

@@ -2043,21 +2043,12 @@ void Pipeline::initBuffers()
   {
     if(!buffer[i])
     {
-#ifdef _WIN32
-      buffer[i] = (float *) _aligned_malloc(16, sizeof(float *) * MusEGlobal::segmentSize);
+      buffer[i] = (float *) museAlignedMalloc(16, sizeof(float) * MusEGlobal::segmentSize);
       if(buffer[i] == nullptr)
       {
-         fprintf(stderr, "ERROR: Pipeline ctor: _aligned_malloc returned error: NULL. Aborting!\n");
+         fprintf(stderr, "ERROR: Pipeline ctor: museAlignedMalloc returned error: NULL. Aborting!\n");
          abort();
       }
-#else
-      int rv = posix_memalign((void**)(buffer + i), 16, sizeof(float) * MusEGlobal::segmentSize);
-      if(rv != 0)
-      {
-        fprintf(stderr, "ERROR: Pipeline ctor: posix_memalign returned error:%d. Aborting!\n", rv);
-        abort();
-      }
-#endif
     }
   }
 
@@ -3641,21 +3632,12 @@ bool PluginI::initPluginInstance(Plugin* plug, int c, const QString& name)
         }
       }
 
-#ifdef _WIN32
-      _audioInSilenceBuf = (float *) _aligned_malloc(16, sizeof(float *) * MusEGlobal::segmentSize);
+      _audioInSilenceBuf = (float *) museAlignedMalloc(16, sizeof(float) * MusEGlobal::segmentSize);
       if(_audioInSilenceBuf == nullptr)
       {
-         fprintf(stderr, "ERROR: PluginI::initPluginInstance: _audioInSilenceBuf _aligned_malloc returned error: NULL. Aborting!\n");
+         fprintf(stderr, "ERROR: PluginI::initPluginInstance: _audioInSilenceBuf museAlignedMalloc returned error: NULL. Aborting!\n");
          abort();
       }
-#else
-      int rv = posix_memalign((void **)&_audioInSilenceBuf, 16, sizeof(float) * MusEGlobal::segmentSize);
-      if(rv != 0)
-      {
-          fprintf(stderr, "ERROR: PluginI::initPluginInstance: _audioInSilenceBuf posix_memalign returned error:%d. Aborting!\n", rv);
-          abort();
-      }
-#endif
       if(MusEGlobal::config.useDenormalBias)
       {
           for(unsigned q = 0; q < MusEGlobal::segmentSize; ++q)
@@ -3667,21 +3649,12 @@ bool PluginI::initPluginInstance(Plugin* plug, int c, const QString& name)
       {
           memset(_audioInSilenceBuf, 0, sizeof(float) * MusEGlobal::segmentSize);
       }
-#ifdef _WIN32
-      _audioOutDummyBuf = (float *) _aligned_malloc(16, sizeof(float *) * MusEGlobal::segmentSize);
+      _audioOutDummyBuf = (float *) museAlignedMalloc(16, sizeof(float) * MusEGlobal::segmentSize);
       if(_audioOutDummyBuf == nullptr)
       {
-         fprintf(stderr, "ERROR: PluginI::initPluginInstance: _audioOutDummyBuf _aligned_malloc returned error: NULL. Aborting!\n");
+         fprintf(stderr, "ERROR: PluginI::initPluginInstance: _audioOutDummyBuf museAlignedMalloc returned error: NULL. Aborting!\n");
          abort();
       }
-#else
-      rv = posix_memalign((void **)&_audioOutDummyBuf, 16, sizeof(float) * MusEGlobal::segmentSize);
-      if(rv != 0)
-      {
-          fprintf(stderr, "ERROR: PluginI::initPluginInstance: _audioOutDummyBuf posix_memalign returned error:%d. Aborting!\n", rv);
-          abort();
-      }
-#endif
 
 #ifdef DSSI_SUPPORT
         // Set current configuration values.
