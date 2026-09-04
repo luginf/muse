@@ -284,7 +284,11 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          DRMEM=$(find /c/ProgramData/chocolatey/lib -iname "drmemory.exe" | head -1)
+          # The actual binaries come from the drmemory.install package,
+          # deployed to "C:\Program Files (x86)\Dr. Memory\" - the
+          # "drmemory" package (found under chocolatey\lib) is a shim/
+          # metadata wrapper around it, not where drmemory.exe itself is.
+          DRMEM=$(find "/c/Program Files (x86)/Dr. Memory" /c/ProgramData/chocolatey/lib -iname "drmemory.exe" 2>/dev/null | head -1)
           echo "Using Dr. Memory at: $DRMEM"
           cd build/muse
           timeout 180 "$DRMEM" -batch -logdir drmemory_logs -- ./muse4.exe -a -F -C -D \
