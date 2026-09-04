@@ -258,6 +258,58 @@ jobs:
             build/muse/gdb_stderr.log
           if-no-files-found: ignore
 
+      # gdb's backtrace (see above) showed the crash lands inside
+      # operator new/malloc itself - i.e. Windows' heap validator only
+      # *detected* pre-existing corruption there, it didn't happen there.
+      # Reproducing under Linux + AddressSanitizer (same code path, same
+      # CMake flags) came back completely clean, which points at something
+      # Windows/MinGW-specific rather than a portable out-of-bounds write.
+      # Dr. Memory is a Valgrind-like memory checker that works on MinGW
+      # binaries and instruments every memory access, so it should catch
+      # the actual bad write instead of just where it was later noticed.
+      - name: Install Dr. Memory
+        if: steps.summary.outputs.built == 'true'
+        shell: pwsh
+        run: choco install drmemory -y --no-progress
+
+      # Runs in the msys2 shell (not pwsh) for the same PATH reason as the
+      # plain smoke test - drmemory.exe itself is found via an explicit
+      # path search since choco's install location isn't on this shell's
+      # PATH, but the *target* muse4.exe still needs /mingw64/bin on PATH
+      # to find its own DLLs.
+      # Instrumented execution is much slower than a native run, hence the
+      # longer timeout than the plain/gdb smoke tests.
+      - name: Smoke test under Dr. Memory
+        if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          DRMEM=$(find /c/ProgramData/chocolatey/lib -iname "drmemory.exe" | head -1)
+          echo "Using Dr. Memory at: $DRMEM"
+          cd build/muse
+          timeout 180 "$DRMEM" -batch -logdir drmemory_logs -- ./muse4.exe -a -F -C -D \
+            > drmem_stdout.log 2> drmem_stderr.log
+          code=$?
+          echo "Dr. Memory wrapper exit code: $code"
+          echo "---- drmem_stdout.log ----"
+          cat drmem_stdout.log
+          echo "---- drmem_stderr.log ----"
+          cat drmem_stderr.log
+          echo "---- results.txt (the actual report) ----"
+          find drmemory_logs -iname "results.txt" -exec cat {} \;
+          exit 0
+
+      - name: Upload Dr. Memory logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-drmemory-logs
+          path: |
+            build/muse/drmem_stdout.log
+            build/muse/drmem_stderr.log
+            build/muse/drmemory_logs
+          if-no-files-found: ignore
+
       - name: Upload built executable
         if: always() && steps.summary.outputs.built == 'true'
         uses: actions/upload-artifact@v4
