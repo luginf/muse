@@ -67,6 +67,9 @@ static void* loop(void* mops)
 
 void Thread::start(int prio, void* ptr)
       {
+      fprintf(stderr, "DIAG: Thread::start(%s) entering, prio=%d, realTimeScheduling=%d\n",
+        _name, prio, MusEGlobal::realTimeScheduling);
+      fflush(stderr);
       userPtr = ptr;
       pthread_attr_t* attributes = 0;
       _realTimePriority = prio;
@@ -108,6 +111,8 @@ void Thread::start(int prio, void* ptr)
                      _realTimePriority, strerror(errno));
                   }
             }
+      fprintf(stderr, "DIAG: Thread::start(%s) about to pthread_create, attributes=%p\n", _name, (void*)attributes);
+      fflush(stderr);
 
 
       /* DELETETHIS 8
@@ -121,7 +126,9 @@ void Thread::start(int prio, void* ptr)
       */
 
 
-      int rv = pthread_create(&thread, attributes, MusECore::loop, this); 
+      int rv = pthread_create(&thread, attributes, MusECore::loop, this);
+      fprintf(stderr, "DIAG: Thread::start(%s) pthread_create returned %d\n", _name, rv);
+      fflush(stderr);
       if(rv)
       {
         // p4.0.16: MusEGlobal::realTimeScheduling is unreliable. It is true even in some clearly non-RT cases.
@@ -258,6 +265,8 @@ void Thread::removePollFd(int fd, int action)
 
 void Thread::loop()
       {
+      fprintf(stderr, "DIAG: Thread::loop(%s) entering (new thread, id %p)\n", _name, (void*)pthread_self());
+      fflush(stderr);
 #ifndef _WIN32
       if (!MusEGlobal::debugMode) {
             if (mlockall(MCL_CURRENT | MCL_FUTURE))
@@ -274,8 +283,14 @@ void Thread::loop()
             buf[i] = i;
 #undef BIG_ENOUGH_STACK
 
+      fprintf(stderr, "DIAG: Thread::loop(%s) touched stack buffer OK\n", _name);
+      fflush(stderr);
+
       pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, 0);
       pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, 0);
+
+      fprintf(stderr, "DIAG: Thread::loop(%s) past setcancelstate/type\n", _name);
+      fflush(stderr);
 
       int policy = buf[0]; // Initialize using buf[0] to keep the compiler from complaining about unused buf.
       policy = 0;          // Now set the true desired initial value.

@@ -1501,7 +1501,9 @@ int main(int argc, char* argv[])
           }
         }
 
+        fprintf(stderr, "DIAG: before isRealtime()\n"); fflush(stderr);
         MusEGlobal::realTimeScheduling = MusEGlobal::audioDevice->isRealtime();
+        fprintf(stderr, "DIAG: after isRealtime(), realTimeScheduling=%d\n", MusEGlobal::realTimeScheduling); fflush(stderr);
 
         // ??? With Jack2 this reports true even if it is not running realtime.
         // Jack says: "Cannot use real-time scheduling (RR/10)(1: Operation not permitted)". The kernel is non-RT.
@@ -1509,22 +1511,27 @@ int main(int argc, char* argv[])
 
         // setup the prefetch fifo length now that the segmentSize is known
         MusEGlobal::fifoLength = 131072 / MusEGlobal::segmentSize;
+        fprintf(stderr, "DIAG: before initAudioPrefetch()\n"); fflush(stderr);
         MusECore::initAudioPrefetch();
+        fprintf(stderr, "DIAG: after initAudioPrefetch()\n"); fflush(stderr);
 
         // Set up the wave module now that sampleRate and segmentSize are known.
+        fprintf(stderr, "DIAG: before initWaveModule()\n"); fflush(stderr);
         MusECore::SndFile::initWaveModule(
           &MusEGlobal::sndFiles,
           &MusEGlobal::audioConverterPluginList,
           &MusEGlobal::defaultAudioConverterSettings,
           MusEGlobal::sampleRate,
           MusEGlobal::segmentSize);
-        
+        fprintf(stderr, "DIAG: after initWaveModule()\n"); fflush(stderr);
+
         if(muse_splash)
         {
           muse_splash->showMessage(splash_prefix + QString(" Initializing midi devices..."),
                                    Qt::AlignLeft|Qt::AlignBottom, Qt::yellow);
           qApp->processEvents();
         }
+        fprintf(stderr, "DIAG: after splash message\n"); fflush(stderr);
 
         qDebug() << "->" << qPrintable(QTime::currentTime().toString("hh:mm:ss.zzz"))
                  << "Init MIDI...";
