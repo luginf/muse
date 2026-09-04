@@ -156,12 +156,18 @@ jobs:
       # real binary explicitly instead of relying on PATH.
       - name: Package runtime deps (windeployqt)
         if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
         run: |
           cd build/muse
           WINDEPLOYQT=$(find /mingw64 -iname "windeployqt*.exe" 2>/dev/null | head -1)
           echo "Using windeployqt at: $WINDEPLOYQT"
           if [ -n "$WINDEPLOYQT" ]; then
-            "$WINDEPLOYQT" muse4.exe
+            # --no-angle/--no-opengl-sw: this mingw64 Qt5 package wasn't
+            # built with ANGLE (GLES-over-D3D) or the software OpenGL
+            # fallback, so windeployqt errors out trying to copy DLLs
+            # that don't exist (libGLESv2.dll) - MusE only needs desktop
+            # OpenGL, which Qt5Gui.dll already covers directly.
+            "$WINDEPLOYQT" --no-angle --no-opengl-sw muse4.exe
           else
             echo "windeployqt not found under /mingw64 - Qt's platform plugin (platforms/qwindows.dll, required to even create a QApplication) won't be packaged. Investigate the mingw-w64-x86_64-qt5-tools package layout if the artifact fails to start standalone."
           fi
