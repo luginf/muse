@@ -143,11 +143,28 @@ jobs:
       # windows_port branch (see src/muse/platform_pipe.h). It is not a
       # real UI test, and GitHub's Windows runner has no interactive
       # desktop, so a full GUI smoke test is not attempted here.
+      # `windeployqt.exe` silently did nothing on every run so far -
+      # "command not found", swallowed by `|| true` below. It isn't on
+      # PATH under this name in the mingw64 shell, so this step was a
+      # no-op the whole time. The smoke test still passed because it
+      # runs inside this same MSYS2 shell, which has /mingw64/bin on
+      # PATH - muse4.exe was finding all its DLLs (Qt included) there,
+      # not next to itself. Fine for the CI smoke test, but it means the
+      # uploaded muse-windows-x86_64 artifact was never actually
+      # runnable outside this environment (a plain download-and-run on a
+      # real Windows machine fails with STATUS_DLL_NOT_FOUND). Find the
+      # real binary explicitly instead of relying on PATH.
       - name: Package runtime deps (windeployqt)
         if: steps.summary.outputs.built == 'true'
         run: |
           cd build/muse
-          windeployqt.exe muse4.exe || true
+          WINDEPLOYQT=$(find /mingw64 -iname "windeployqt*.exe" 2>/dev/null | head -1)
+          echo "Using windeployqt at: $WINDEPLOYQT"
+          if [ -n "$WINDEPLOYQT" ]; then
+            "$WINDEPLOYQT" muse4.exe
+          else
+            echo "windeployqt not found under /mingw64 - Qt's platform plugin (platforms/qwindows.dll, required to even create a QApplication) won't be packaged. Investigate the mingw-w64-x86_64-qt5-tools package layout if the artifact fails to start standalone."
+          fi
 
       # windeployqt only handles Qt's own DLLs. MusE's internal "modules"
       # (xml_module, evdata_module, plugin_scan_module, etc. - see
@@ -161,6 +178,26 @@ jobs:
         if: steps.summary.outputs.built == 'true'
         run: |
           find build -name "*.dll" -not -path "build/muse/*" -exec cp -n {} build/muse/ \;
+
+      # Same root cause as windeployqt above, for everything else
+      # muse4.exe links against from the mingw64 toolchain (libstdc++,
+      # libwinpthread, libgcc_s, JACK, liblo, lilv/serd/sord/sratom,
+      # libsndfile, libsamplerate, fluidsynth, dlfcn, ...) - it all only
+      # resolved via /mingw64/bin on PATH, invisible outside this shell.
+      # `ldd` walks the exe's actual import table, so it can't miss a
+      # real dependency the linker pulled in (unlike guessing package
+      # names) - copy every mingw64 DLL it resolves next to the exe so
+      # the uploaded artifact is finally self-contained and runnable on
+      # a plain Windows machine with no MSYS2/mingw64 installed.
+      - name: Collect mingw64 runtime DLLs (ldd-based, for a standalone artifact)
+        if: steps.summary.outputs.built == 'true'
+        run: |
+          cd build/muse
+          for dll in $(ldd muse4.exe | awk '{print $3}' | grep -i '^/mingw64/'); do
+            cp -n "$dll" . 2>/dev/null || true
+          done
+          echo "---- build/muse after DLL collection ----"
+          ls -la
 
       # NOTE: this deliberately stays in the msys2 {0} shell (the job
       # default), not pwsh. The first attempt used pwsh/Start-Process and
@@ -339,9 +376,26 @@ jobs:
             build/muse/gdb_pageheap_stderr.log
           if-no-files-found: ignore
 
+      # A standalone package for testing outside CI: the exe, every DLL
+      # collected by the three steps above (Qt's own via windeployqt,
+      # MusE's internal modules, and the rest of the mingw64 runtime via
+      # ldd), and the Qt plugin subdirectories windeployqt creates
+      # (platforms/qwindows.dll is required just to start a QApplication;
+      # imageformats/iconengines/styles are needed for icons/theming to
+      # render correctly). if-no-files-found: ignore per pattern so a
+      # subdirectory windeployqt didn't create (e.g. if it wasn't found
+      # above) doesn't fail the whole upload.
       - name: Upload built executable
         if: always() && steps.summary.outputs.built == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: muse-windows-x86_64
-          path: build/muse/*.exe
+          path: |
+            build/muse/*.exe
+            build/muse/*.dll
+            build/muse/platforms
+            build/muse/imageformats
+            build/muse/iconengines
+            build/muse/styles
+            build/muse/translations
+          if-no-files-found: ignore
