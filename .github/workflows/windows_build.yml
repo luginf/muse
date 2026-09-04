@@ -288,8 +288,18 @@ jobs:
       # No extra tool install needed; this is a documented, built-in OS
       # debugging feature (see gflags.exe /p /enable, same GlobalFlag
       # value) applied directly via the registry.
+      # MSYS2_ARG_CONV_EXCL=* is required here: MSYS2's bash rewrites any
+      # argument that looks like a POSIX path (i.e. starts with /) into a
+      # Windows path before handing it to a native, non-MSYS executable
+      # like reg.exe - silently mangling /v, /t, /d, /f into garbage and
+      # producing reg.exe's generic "ERROR: Invalid syntax." with no hint
+      # of the real cause. Disabling that conversion for this one command
+      # is the standard workaround.
       - name: Enable Windows page heap for muse4.exe
         if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"
         run: |
           reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\muse4.exe" /v GlobalFlag /t REG_SZ /d 0x02000000 /f
 
