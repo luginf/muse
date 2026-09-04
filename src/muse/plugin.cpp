@@ -2421,9 +2421,9 @@ void Pipeline::showGui(int idx, bool flag)
 void Pipeline::showNativeGui(int idx, bool flag)
       {
          PluginI* p = (*this)[idx];
-#ifdef LV2_SUPPORT
          if(p)
          {
+#ifdef LV2_SUPPORT
            if(p->plugin() && p->pluginType() == MusEPlugin::PluginTypeLV2)
            {
               ((LV2PluginWrapper *)p->plugin())->showNativeGui(p, flag);
