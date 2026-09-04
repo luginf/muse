@@ -1625,13 +1625,19 @@ int main(int argc, char* argv[])
                  << "Init OSC / metronome...";
 
   #ifdef OSC_SUPPORT
+        fprintf(stderr, "DIAG: before initOSC()\n"); fflush(stderr);
         MusECore::initOSC();
+        fprintf(stderr, "DIAG: after initOSC()\n"); fflush(stderr);
   #endif
 
+        fprintf(stderr, "DIAG: before initMetronome()\n"); fflush(stderr);
         MusECore::initMetronome();
+        fprintf(stderr, "DIAG: after initMetronome()\n"); fflush(stderr);
 
         const QString metro_presets = MusEGlobal::museGlobalShare + QString("/metronome");
+        fprintf(stderr, "DIAG: before initMetronomePresets()\n"); fflush(stderr);
         MusECore::initMetronomePresets(metro_presets, &MusEGlobal::metroAccentPresets, MusEGlobal::debugMsg);
+        fprintf(stderr, "DIAG: after initMetronomePresets()\n"); fflush(stderr);
         // If the global metronome accent settings are empty, it is unlikely the user did that, or wants that.
         // More likely it indicates this is a first-time init of the global settings.
         // In any case, if empty fill the global metronome accent settings with factory presets.
@@ -1644,9 +1650,13 @@ int main(int argc, char* argv[])
             MusECore::MetroAccentsStruct::FactoryPreset);
         }
 
+        fprintf(stderr, "DIAG: before initWavePreview()\n"); fflush(stderr);
         MusECore::initWavePreview(MusEGlobal::segmentSize);
+        fprintf(stderr, "DIAG: after initWavePreview()\n"); fflush(stderr);
 
+        fprintf(stderr, "DIAG: before enumerateJackMidiDevices()\n"); fflush(stderr);
         MusECore::enumerateJackMidiDevices();
+        fprintf(stderr, "DIAG: after enumerateJackMidiDevices()\n"); fflush(stderr);
 
   #ifdef HAVE_LASH
         if (MusEGlobal::useLASH) // if false, then it was disabled by command line switch
