@@ -264,55 +264,69 @@ jobs:
       # Reproducing under Linux + AddressSanitizer (same code path, same
       # CMake flags) came back completely clean, which points at something
       # Windows/MinGW-specific rather than a portable out-of-bounds write.
-      # Dr. Memory is a Valgrind-like memory checker that works on MinGW
-      # binaries and instruments every memory access, so it should catch
-      # the actual bad write instead of just where it was later noticed.
-      - name: Install Dr. Memory
+      #
+      # Dr. Memory (a Valgrind-like checker for MinGW binaries) was tried
+      # here to catch the actual bad write, but after fixing two CI-side
+      # bugs (binary search path, missing -logdir) it failed for a third,
+      # unfixable reason: "Unable to load client library: ucrtbase.dll:
+      # library initializer failed" - Dr. Memory's client-injection
+      # mechanism is incompatible with the current windows-latest runner
+      # image (last Dr. Memory release: 2.6.0/2023, not tracking recent
+      # Windows/UCRT builds). Abandoned in favor of a native alternative
+      # below that needs no third-party injection at all.
+      #
+      # Windows page heap (the mechanism behind gflags.exe/Application
+      # Verifier's "full page heap"): setting the GlobalFlag
+      # FLG_HEAP_PAGE_ALLOCS (0x02000000) via the standard Image File
+      # Execution Options registry key makes every heap allocation for
+      # this one executable land on its own dedicated page, immediately
+      # followed by an inaccessible guard page. A write that overruns its
+      # allocation now faults *at the moment it happens* (a plain
+      # SIGSEGV/access violation) instead of merely being noticed later by
+      # the heap validator - so the existing gdb batch-mode step, re-run
+      # with this enabled, should finally backtrace to the real culprit.
+      # No extra tool install needed; this is a documented, built-in OS
+      # debugging feature (see gflags.exe /p /enable, same GlobalFlag
+      # value) applied directly via the registry.
+      - name: Enable Windows page heap for muse4.exe
         if: steps.summary.outputs.built == 'true'
-        shell: pwsh
-        run: choco install drmemory -y --no-progress
+        run: |
+          reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\muse4.exe" /v GlobalFlag /t REG_SZ /d 0x02000000 /f
 
-      # Runs in the msys2 shell (not pwsh) for the same PATH reason as the
-      # plain smoke test - drmemory.exe itself is found via an explicit
-      # path search since choco's install location isn't on this shell's
-      # PATH, but the *target* muse4.exe still needs /mingw64/bin on PATH
-      # to find its own DLLs.
-      # Instrumented execution is much slower than a native run, hence the
-      # longer timeout than the plain/gdb smoke tests.
-      - name: Smoke test under Dr. Memory
+      - name: Smoke test under gdb with page heap enabled (real crash-site backtrace)
         if: steps.summary.outputs.built == 'true'
         continue-on-error: true
         run: |
           set +e
-          # The actual binaries come from the drmemory.install package,
-          # deployed to "C:\Program Files (x86)\Dr. Memory\" - the
-          # "drmemory" package (found under chocolatey\lib) is a shim/
-          # metadata wrapper around it, not where drmemory.exe itself is.
-          DRMEM=$(find "/c/Program Files (x86)/Dr. Memory" /c/ProgramData/chocolatey/lib -iname "drmemory.exe" 2>/dev/null | head -1)
-          echo "Using Dr. Memory at: $DRMEM"
           cd build/muse
-          mkdir -p drmemory_logs
-          timeout 180 "$DRMEM" -batch -logdir drmemory_logs -- ./muse4.exe -a -F -C -D \
-            > drmem_stdout.log 2> drmem_stderr.log
+          timeout 60 gdb -batch \
+            -ex "set pagination off" \
+            -ex "run" \
+            -ex "echo \n---- bt full ----\n" \
+            -ex "bt full" \
+            -ex "echo \n---- info registers ----\n" \
+            -ex "info registers" \
+            -ex "echo \n---- thread apply all bt ----\n" \
+            -ex "thread apply all bt" \
+            -ex "quit" \
+            --args ./muse4.exe -a -F -C -D \
+            > gdb_pageheap_stdout.log 2> gdb_pageheap_stderr.log
           code=$?
-          echo "Dr. Memory wrapper exit code: $code"
-          echo "---- drmem_stdout.log ----"
-          cat drmem_stdout.log
-          echo "---- drmem_stderr.log ----"
-          cat drmem_stderr.log
-          echo "---- results.txt (the actual report) ----"
-          find drmemory_logs -iname "results.txt" -exec cat {} \;
+          echo "gdb (page heap) wrapper exit code: $code"
+          echo "---- gdb stdout ----"
+          cat gdb_pageheap_stdout.log
+          echo "---- gdb stderr ----"
+          cat gdb_pageheap_stderr.log
           exit 0
 
-      - name: Upload Dr. Memory logs
+      - name: Upload gdb page-heap backtrace logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-drmemory-logs
+          name: windows-gdb-pageheap-logs
           path: |
-            build/muse/drmem_stdout.log
-            build/muse/drmem_stderr.log
-            build/muse/drmemory_logs
+            build/muse/gdb_pageheap_stdout.log
+            build/muse/gdb_pageheap_stderr.log
           if-no-files-found: ignore
 
       - name: Upload built executable
