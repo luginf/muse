@@ -382,6 +382,21 @@ jobs:
             build/muse/gdb_pageheap_stderr.log
           if-no-files-found: ignore
 
+      # The page heap GlobalFlag registered above is a per-executable-name
+      # IFEO registry entry, not scoped to the one step that set it - every
+      # subsequent launch of any muse4.exe in this job keeps triggering it.
+      # The watchpoint step below needs plain, unperturbed heap behavior
+      # (both to get normal allocation timing, and because otherwise gdb's
+      # "run" stops on page heap's own SIGTRAP again before ever reaching
+      # the intended breakpoint, as run 33898882908 found). Remove it here.
+      - name: Disable Windows page heap for muse4.exe
+        if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"
+        run: |
+          reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\muse4.exe" /f
+
       # Page heap (above) narrowed the remaining STATUS_HEAP_CORRUPTION to a
       # genuine heap buffer overflow ("corrupted suffix pattern", not the
       # alloc/free mismatch fixed earlier): a 512-float (2048-byte) buffer
