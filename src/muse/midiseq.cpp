@@ -29,9 +29,11 @@
 
 #include <stdio.h>
 //#include <fcntl.h>
-#ifndef _WIN32
 //#include <sys/ioctl.h>
-#include <poll.h>
+#ifdef _WIN32
+#include "poll.h"
+#else
+#include <sys/poll.h>
 #endif
 //#include "muse_math.h"
 #include <errno.h>

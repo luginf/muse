@@ -21,8 +21,10 @@
 //
 //=========================================================
 
-#ifndef _WIN32
-#include <poll.h>
+#ifdef _WIN32
+#include "poll.h"
+#else
+#include <sys/poll.h>
 #endif
 #include <stdio.h>
 #include <unistd.h>
