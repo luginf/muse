@@ -24,6 +24,7 @@
 #ifndef __THREAD_H__
 #define __THREAD_H__
 
+#include <atomic>
 #include <pthread.h>
 #include <list>
 
@@ -69,7 +70,7 @@ struct ThreadMsg {
 
 class Thread {
       const char* _name;
-      volatile bool _running;
+      std::atomic<bool> _running;
       int _pollWait;    // poll timeout in msec (-1 = infinite)
 
       pthread_t thread;
