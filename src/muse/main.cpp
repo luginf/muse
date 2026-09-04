@@ -570,6 +570,34 @@ CommandLineParseResult parseCommandLine(
 }
 
 
+#ifdef _WIN32
+//---------------------------------------------------------
+//   museMessageHandler
+//    On Windows, a GUI-subsystem executable with no attached console
+//    has nowhere obvious for Qt to send qDebug()/qWarning()/etc.
+//    output - by default Qt routes it to the debugger (OutputDebugString)
+//    instead of stderr, so none of it appears in a redirected stderr
+//    log (unlike plain fprintf(stderr, ...), which is unaffected).
+//    Force it to stderr so command-line/CI runs behave like Linux.
+//---------------------------------------------------------
+
+static void museMessageHandler(QtMsgType type, const QMessageLogContext&, const QString& msg)
+      {
+      const char* prefix = "";
+      switch (type) {
+            case QtDebugMsg:    prefix = "Debug: ";    break;
+            case QtInfoMsg:     prefix = "Info: ";     break;
+            case QtWarningMsg:  prefix = "Warning: ";  break;
+            case QtCriticalMsg: prefix = "Critical: "; break;
+            case QtFatalMsg:    prefix = "Fatal: ";    break;
+            }
+      fprintf(stderr, "%s%s\n", prefix, msg.toLocal8Bit().constData());
+      fflush(stderr);
+      if (type == QtFatalMsg)
+            abort();
+      }
+#endif
+
 //---------------------------------------------------------
 //   main
 //---------------------------------------------------------
@@ -577,6 +605,8 @@ CommandLineParseResult parseCommandLine(
 int main(int argc, char* argv[])
 {
 #ifdef _WIN32
+      qInstallMessageHandler(museMessageHandler);
+
       // Winsock must be explicitly initialized before any socket call.
       // We use raw Winsock sockets (not just Qt's) for the internal
       // GUI <-> audio/sequencer thread messaging, see platform_pipe.h
