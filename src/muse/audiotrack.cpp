@@ -565,20 +565,20 @@ AudioTrack::~AudioTrack()
       delete _efxPipe;
 
       if(audioInSilenceBuf)
-        free(audioInSilenceBuf);
+        museAlignedFree(audioInSilenceBuf);
 
       if(audioOutDummyBuf)
-        free(audioOutDummyBuf);
+        museAlignedFree(audioOutDummyBuf);
 
       if(_latencyComp)
         delete _latencyComp;
-      
+
       if(_dataBuffers)
       {
         for(int i = 0; i < _totalOutChannels; ++i)
         {
           if(_dataBuffers[i])
-            free(_dataBuffers[i]);
+            museAlignedFree(_dataBuffers[i]);
         }
         delete[] _dataBuffers;
       }
@@ -588,7 +588,7 @@ AudioTrack::~AudioTrack()
         for(int i = 0; i < MusECore::MAX_CHANNELS; ++i)
         {
           if(outBuffersExtraMix[i])
-            free(outBuffersExtraMix[i]);
+            museAlignedFree(outBuffersExtraMix[i]);
         }
         delete[] outBuffersExtraMix;
       }
@@ -602,7 +602,7 @@ AudioTrack::~AudioTrack()
         for(int i = 0; i < chans; ++i)
         {
           if(outBuffers[i])
-            free(outBuffers[i]);
+            museAlignedFree(outBuffers[i]);
         }
         delete[] outBuffers;
       }
@@ -2923,7 +2923,7 @@ AudioAux::~AudioAux()
 {
       for (int i = 0; i < MusECore::MAX_CHANNELS; ++i) {
             if (buffer[i])
-                free(buffer[i]);
+                museAlignedFree(buffer[i]);
       }
 }
 
@@ -3043,7 +3043,7 @@ void AudioAux::setChannels(int n)
     for(int i = new_chans; i < old_chans; ++i)
     {
       if(buffer[i])
-        free(buffer[i]);
+        museAlignedFree(buffer[i]);
     }
   }
 }

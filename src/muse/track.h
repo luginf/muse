@@ -32,6 +32,10 @@
 
 #include <vector>
 #include <algorithm>
+#include <cstdlib>
+#ifdef _WIN32
+#include <malloc.h> // for _aligned_free()
+#endif
 
 #include "wave.h" // for SndFileR
 #include "part.h"
@@ -64,6 +68,28 @@ struct XmlWriteStatistics;
 
 typedef std::vector<double> AuxSendValueList;
 typedef std::vector<double>::iterator iAuxSendValue;
+
+//---------------------------------------------------------
+//   museAlignedFree
+//    Release memory obtained from the platform's aligned allocator
+//    (see AudioTrack::init_buffers() and friends, which 16-byte-align
+//    audio buffers for SIMD). On Windows this is _aligned_malloc(),
+//    whose block layout is NOT interchangeable with plain malloc()/
+//    free() - it stores its own header ahead of the returned pointer,
+//    and freeing it with plain free() corrupts the heap (confirmed via
+//    Windows page heap: "corrupted start stamp" on exactly such a
+//    free()). On Linux/macOS the allocator is posix_memalign(), whose
+//    pointers ARE safe to release with plain free().
+//---------------------------------------------------------
+
+static inline void museAlignedFree(void* ptr)
+{
+#ifdef _WIN32
+  _aligned_free(ptr);
+#else
+  free(ptr);
+#endif
+}
 
 //---------------------------------------------------------
 //   Track
