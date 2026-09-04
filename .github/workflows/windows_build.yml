@@ -291,6 +291,7 @@ jobs:
           DRMEM=$(find "/c/Program Files (x86)/Dr. Memory" /c/ProgramData/chocolatey/lib -iname "drmemory.exe" 2>/dev/null | head -1)
           echo "Using Dr. Memory at: $DRMEM"
           cd build/muse
+          mkdir -p drmemory_logs
           timeout 180 "$DRMEM" -batch -logdir drmemory_logs -- ./muse4.exe -a -F -C -D \
             > drmem_stdout.log 2> drmem_stderr.log
           code=$?
