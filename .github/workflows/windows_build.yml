@@ -55,6 +55,7 @@ jobs:
             mingw-w64-x86_64-rtaudio
             mingw-w64-x86_64-jack2
             mingw-w64-x86_64-dlfcn
+            mingw-w64-x86_64-gdb
 
       # MODULES_BUILD_STATIC=ON: on Linux the internal "modules" (widgets,
       # master, driver, etc.) are built as .so libraries, which works because
@@ -210,6 +211,51 @@ jobs:
           path: |
             smoke_stdout.log
             smoke_stderr.log
+          if-no-files-found: ignore
+
+      # Run the same smoke test again, this time under gdb in batch mode,
+      # specifically to get a real call stack for the SIGSEGV the plain
+      # smoke test above has been hitting (see the "Init MIDI..." crash
+      # investigation on windows_port). In gdb batch mode, "run" executes
+      # the inferior and control returns to gdb (running the subsequent
+      # -ex commands) as soon as it stops - whether that's a crash signal
+      # or, if it doesn't crash, only when the outer `timeout` kills gdb
+      # itself (in which case there's nothing to report, matching the
+      # plain smoke test's "still running = success" case).
+      - name: Smoke test under gdb (batch-mode backtrace on crash)
+        if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          cd build/muse
+          timeout 40 gdb -batch \
+            -ex "set pagination off" \
+            -ex "run" \
+            -ex "echo \n---- bt full ----\n" \
+            -ex "bt full" \
+            -ex "echo \n---- info registers ----\n" \
+            -ex "info registers" \
+            -ex "echo \n---- thread apply all bt ----\n" \
+            -ex "thread apply all bt" \
+            -ex "quit" \
+            --args ./muse4.exe -a -F -C -D \
+            > gdb_stdout.log 2> gdb_stderr.log
+          code=$?
+          echo "gdb wrapper exit code: $code"
+          echo "---- gdb stdout ----"
+          cat gdb_stdout.log
+          echo "---- gdb stderr ----"
+          cat gdb_stderr.log
+          exit 0
+
+      - name: Upload gdb backtrace logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gdb-logs
+          path: |
+            build/muse/gdb_stdout.log
+            build/muse/gdb_stderr.log
           if-no-files-found: ignore
 
       - name: Upload built executable
