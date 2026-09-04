@@ -72,6 +72,19 @@ jobs:
       # Disabling it here sidesteps the crash without losing anything that
       # matters for a first working Windows build. Worth revisiting later
       # if someone wants LV2 support specifically on Windows.
+      #
+      # ENABLE_OSC=OFF: same pattern as LV2. With qDebug() finally routed to
+      # stderr (see main.cpp's museMessageHandler), the startup log showed
+      # muse4.exe getting all the way to "Init OSC / metronome..." and then
+      # dying (exit 127) with no error message from initOSC()'s own
+      # handling - i.e. a hard crash inside liblo's lo_server_thread_new(),
+      # not a graceful failure. liblo spawns its own internal thread for
+      # the OSC server unconditionally at startup, regardless of whether
+      # the user has any OSC control surface. RTAUDIO/VST_NATIVE (the
+      # backend and plugin format Windows users actually rely on) don't do
+      # anything comparable at startup, and FLUID (the built-in SoundFont
+      # synth) only starts its own thread when a synth track is actually
+      # created, not before - so neither is a similar suspect right now.
       - name: Configure (CMake)
         run: |
           mkdir build
@@ -83,7 +96,7 @@ jobs:
             -DENABLE_ALSA=OFF \
             -DENABLE_LASH=OFF \
             -DENABLE_LRDF=OFF \
-            -DENABLE_OSC=ON \
+            -DENABLE_OSC=OFF \
             -DENABLE_DSSI=OFF \
             -DENABLE_VST_NATIVE=ON \
             -DENABLE_VST_VESTIGE=ON \
