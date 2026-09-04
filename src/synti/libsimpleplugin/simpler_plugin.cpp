@@ -33,6 +33,7 @@
 
 #include "simpler_plugin.h"
 #include "plugin_cache_reader.h"
+#include "globaldefs.h"
 
 #define SS_LOG_MAX   0
 #define SS_LOG_MIN -10
@@ -730,9 +731,9 @@ PluginI::PluginI()
 PluginI::~PluginI()
       {
       if(_audioInSilenceBuf)
-        free(_audioInSilenceBuf);
+        MusECore::museAlignedFree(_audioInSilenceBuf);
       if(_audioOutDummyBuf)
-        free(_audioOutDummyBuf);
+        MusECore::museAlignedFree(_audioOutDummyBuf);
 
       if(_controlsOutDummy)
         delete[] _controlsOutDummy;

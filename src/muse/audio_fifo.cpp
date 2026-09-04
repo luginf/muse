@@ -23,6 +23,7 @@
 //=========================================================
 
 #include "audio_fifo.h"
+#include "globaldefs.h"
 #include "globals.h"
 #include "al/dsp.h"
 
@@ -49,7 +50,7 @@ Fifo::~Fifo()
       for (int i = 0; i < nbuffer; ++i)
       {
         if(buffer[i]->buffer)
-          free(buffer[i]->buffer);
+          museAlignedFree(buffer[i]->buffer);
 
         delete buffer[i];
       }
@@ -89,7 +90,7 @@ bool Fifo::put(int segs, MuseCount_t samples, float** src, MuseCount_t pos, floa
       if (b->maxSize < n) {
             if (b->buffer)
             {
-              free(b->buffer);
+              museAlignedFree(b->buffer);
               b->buffer = 0;
             }
 #ifdef _WIN32
@@ -221,7 +222,7 @@ bool Fifo::getWriteBuffer(int segs, MuseCount_t samples, float** buf, MuseCount_
       if (b->maxSize < n) {
             if (b->buffer)
             {
-              free(b->buffer);
+              museAlignedFree(b->buffer);
               b->buffer = 0;
             }
 #ifdef _WIN32

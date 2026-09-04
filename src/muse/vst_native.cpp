@@ -37,6 +37,7 @@
 #include <jack/jack.h>
 #include <sstream>
 
+#include "globaldefs.h"
 #include "globals.h"
 #include "gconfig.h"
 #include "audio.h"
@@ -665,7 +666,7 @@ VstNativeSynthIF::~VstNativeSynthIF()
     for(unsigned long i = 0; i < op; ++i)
     {
       if(_audioOutBuffers[i])
-        free(_audioOutBuffers[i]);
+        museAlignedFree(_audioOutBuffers[i]);
     }
     delete[] _audioOutBuffers;
   }
@@ -676,13 +677,13 @@ VstNativeSynthIF::~VstNativeSynthIF()
     for(unsigned long i = 0; i < ip; ++i)
     {
       if(_audioInBuffers[i])
-        free(_audioInBuffers[i]);
+        museAlignedFree(_audioInBuffers[i]);
     }
     delete[] _audioInBuffers;
   }
 
   if(_audioInSilenceBuf)
-    free(_audioInSilenceBuf);
+    museAlignedFree(_audioInSilenceBuf);
     
   if(_controls)
     delete[] _controls;

@@ -24,7 +24,37 @@
 #ifndef __GLOBALDEFS_H__
 #define __GLOBALDEFS_H__
 
+#include <cstdlib>
+#ifdef _WIN32
+#include <malloc.h> // for _aligned_free()
+#endif
+
 namespace MusECore {
+
+//---------------------------------------------------------
+//   museAlignedFree
+//    Release memory obtained from the platform's aligned allocator
+//    (16-byte-aligned SIMD audio buffers, allocated throughout this
+//    codebase with _aligned_malloc() on _WIN32 / posix_memalign()
+//    elsewhere - see AudioTrack::init_buffers() and the many other
+//    call sites doing the same _WIN32/posix_memalign split). On
+//    Windows _aligned_malloc()'s block layout is NOT interchangeable
+//    with plain malloc()/free() - it stores its own header ahead of
+//    the returned pointer, and freeing it with plain free() corrupts
+//    the heap (confirmed via Windows page heap: "corrupted start
+//    stamp" on exactly such a free()). On Linux/macOS the allocator is
+//    posix_memalign(), whose pointers ARE safe to release with plain
+//    free().
+//---------------------------------------------------------
+
+static inline void museAlignedFree(void* ptr)
+{
+#ifdef _WIN32
+  _aligned_free(ptr);
+#else
+  free(ptr);
+#endif
+}
 
 // Midi Type
 //    MT_GM  - General Midi

@@ -48,6 +48,7 @@
 #include <QVBoxLayout>
 #include <QStringList>
 
+#include "globaldefs.h"
 #include "pluglist.h"
 #include "lv2host.h"
 #include "synth.h"
@@ -3947,21 +3948,21 @@ LV2SynthIF::~LV2SynthIF()
 
     for(; _itA != _audioInPorts.end(); ++_itA)
     {
-        free((*_itA).buffer);
+        museAlignedFree((*_itA).buffer);
     }
 
     _itA = _audioOutPorts.begin();
 
     for(; _itA != _audioOutPorts.end(); ++_itA)
     {
-        free((*_itA).buffer);
+        museAlignedFree((*_itA).buffer);
     }
 
     if(_audioInSilenceBuf)
-        free(_audioInSilenceBuf);
+        museAlignedFree(_audioInSilenceBuf);
 
     if(_audioOutDummyBuf)
-        free(_audioOutDummyBuf);
+        museAlignedFree(_audioOutDummyBuf);
 
     if(_audioInBuffers)
     {

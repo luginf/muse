@@ -35,6 +35,7 @@
 //#include "config.h"
 #include "audio.h"
 #include "audiodev.h"
+#include "globaldefs.h"
 #include "globals.h"
 #include "song.h"
 // #include "driver/alsatimer.h"
@@ -91,8 +92,8 @@ class DummyAudioDevice : public AudioDevice {
 
       DummyAudioDevice();
       virtual ~DummyAudioDevice()
-      { 
-        free(buffer); 
+      {
+        museAlignedFree(buffer);
       }
 
       virtual inline int deviceType() const { return DUMMY_AUDIO; }

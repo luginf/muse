@@ -2029,7 +2029,7 @@ Pipeline::~Pipeline()
       for (int i = 0; i < MusECore::MAX_CHANNELS; ++i)
           if(buffer[i])
           {
-            ::free(buffer[i]);
+            museAlignedFree(buffer[i]);
           }
           //else
           //{
@@ -3063,9 +3063,9 @@ PluginI::~PluginI()
             }
 
       if(_audioInSilenceBuf)
-        free(_audioInSilenceBuf);
+        museAlignedFree(_audioInSilenceBuf);
       if(_audioOutDummyBuf)
-        free(_audioOutDummyBuf);
+        museAlignedFree(_audioOutDummyBuf);
 
       if (controlsOutDummy)
             delete[] controlsOutDummy;
