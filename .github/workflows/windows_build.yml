@@ -382,6 +382,61 @@ jobs:
             build/muse/gdb_pageheap_stderr.log
           if-no-files-found: ignore
 
+      # Page heap (above) narrowed the remaining STATUS_HEAP_CORRUPTION to a
+      # genuine heap buffer overflow ("corrupted suffix pattern", not the
+      # alloc/free mismatch fixed earlier): a 512-float (2048-byte) buffer
+      # allocated in AudioTrack::initBuffers() for the Metronome SynthI's
+      # _dataBuffers[0], freed moments later in setTotalOutChannels() during
+      # initMetronome(), has its guard bytes right after the buffer's end
+      # stomped sometime in between. Page heap's own backtrace only shows
+      # the *free* site (where the validator finally checks), not the
+      # write - the offending write happens in the narrow window between
+      # AudioTrack's constructor (ticksynth.cpp:847, "metronome = new
+      # MetronomeSynthI()") and the very next line's initInstance() call
+      # (ticksynth.cpp:849, which immediately frees these same buffers).
+      # A hardware watchpoint set on the exact byte right after the
+      # buffer's logical end - computed at runtime from the real pointer,
+      # since heap addresses move every run (ASLR) - will stop execution
+      # at the actual instruction doing the overflowing write, wherever it
+      # is, instead of only at the later free() that merely notices it.
+      - name: Smoke test under gdb watchpoint (pinpoint the overflow write into Metronome's buffer)
+        if: steps.summary.outputs.built == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          cd build/muse
+          timeout 60 gdb -batch \
+            -ex "set pagination off" \
+            -ex "break ticksynth.cpp:849" \
+            -ex "run" \
+            -ex "echo \n---- metronome pointer and its _dataBuffers[0] ----\n" \
+            -ex "print metronome" \
+            -ex "print metronome->_dataBuffers[0]" \
+            -ex "watch *(char*)((char*)metronome->_dataBuffers[0] + 2048)" \
+            -ex "continue" \
+            -ex "echo \n---- bt full at watchpoint hit (or process exit if it never triggered) ----\n" \
+            -ex "bt full" \
+            -ex "quit" \
+            --args ./muse4.exe -a -F -C -D \
+            > gdb_watch_stdout.log 2> gdb_watch_stderr.log
+          code=$?
+          echo "gdb watchpoint wrapper exit code: $code"
+          echo "---- gdb stdout ----"
+          cat gdb_watch_stdout.log
+          echo "---- gdb stderr ----"
+          cat gdb_watch_stderr.log
+          exit 0
+
+      - name: Upload gdb watchpoint logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-gdb-watchpoint-logs
+          path: |
+            build/muse/gdb_watch_stdout.log
+            build/muse/gdb_watch_stderr.log
+          if-no-files-found: ignore
+
       # A standalone package for testing outside CI: the exe, every DLL
       # collected by the three steps above (Qt's own via windeployqt,
       # MusE's internal modules, and the rest of the mingw64 runtime via
