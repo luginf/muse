@@ -464,6 +464,20 @@ jobs:
         run: |
           reg delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\muse4.exe" /f
 
+      # main.cpp resolves museGlobalShare (instruments, templates,
+      # metronome sounds, themes, etc. - everything under src/share/ in
+      # the source tree, normally installed to a fixed prefix by `cmake
+      # --install`, which this portable/xcopy packaging never runs) as
+      # "<exe's own directory>/share/muse-4.3" on Windows - ship that
+      # data here so a plain extracted .zip/.7z actually has instrument
+      # definitions (GM/XG/etc.), the default template, and everything
+      # else share/ provides, instead of silently missing them.
+      - name: Package share/ data (instruments, templates, metronome, themes, etc.)
+        if: steps.summary.outputs.built == 'true'
+        run: |
+          mkdir -p build/muse/share/muse-4.3
+          cp -r src/share/* build/muse/share/muse-4.3/
+
       # A standalone package for testing outside CI: the exe, every DLL
       # collected by the three steps above (Qt's own via windeployqt,
       # MusE's internal modules, and the rest of the mingw64 runtime via
@@ -486,4 +500,5 @@ jobs:
             build/muse/iconengines
             build/muse/styles
             build/muse/translations
+            build/muse/share
           if-no-files-found: ignore

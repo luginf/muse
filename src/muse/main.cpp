@@ -749,6 +749,25 @@ int main(int argc, char* argv[])
         MusEGlobal::museGlobalLib   = QString(LIBDIR);
         MusEGlobal::museGlobalShare = QString(SHAREDIR);
 
+#ifdef _WIN32
+        // The compiled-in LIBDIR/SHAREDIR default to an absolute install
+        // prefix (e.g. "C:/Program Files (x86)/muse/...") that only
+        // exists after a real `cmake --install` - this Windows port is
+        // currently packaged as a portable, xcopy-deployable folder (see
+        // windows_build.yml) with no such install step, so those paths
+        // never exist as shipped. Resolve them relative to the running
+        // executable instead: every module/converter/synth .dll already
+        // ships flat next to muse4.exe, and a share/muse-4.3/ folder
+        // ships alongside it too (instruments, templates, metronome,
+        // themes, etc.) - mirroring the APPDIR (AppImage) override just
+        // below, which does the same thing for Linux.
+        {
+          const QString exeDir = QCoreApplication::applicationDirPath();
+          MusEGlobal::museGlobalLib   = exeDir;
+          MusEGlobal::museGlobalShare = exeDir + "/share/muse-4.3";
+        }
+#endif
+
         const QByteArray appDir = qgetenv("APPDIR"); // running in AppImage
         if (!appDir.isEmpty()) {
             MusEGlobal::museGlobalLib   = appDir + MusEGlobal::museGlobalLib;
