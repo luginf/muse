@@ -36,6 +36,7 @@
 #include "midi_consts.h"
 #include "midictrl.h"
 #include "midiport.h"
+#include "midiseq.h"
 #include "minstrument.h"
 #include "platform_pipe.h"
 
@@ -759,6 +760,25 @@ void MidiWinMMDevice::processMidi(unsigned int curFrame)
 
 bool initMidiWinMM()
       {
+      // The sequencer thread (MidiSeq) is what actually polls each
+      // device's selectRfd() and drains recorded MIDI - MidiSeq itself
+      // is generic/backend-agnostic, but MusEGlobal::midiSeq is never
+      // constructed anywhere except as a side effect of initMidiAlsa()
+      // calling initMidiSequencer() (see alsamidi.cpp). On Windows,
+      // ALSA_SUPPORT is never defined so that call site is compiled out
+      // entirely: MusEGlobal::midiSeq silently stayed nullptr for the
+      // whole session. Every other part of the WinMM backend worked
+      // (device enumeration, midiInOpen/midiInStart, midiInProc firing
+      // on real hardware input, confirmed via WINMM_MIDI_INPUT_DEBUG
+      // tracing) - but with no sequencer thread, nothing ever called
+      // updatePollFd() or processInput(), so recorded input (and
+      // anything else routed through MidiSeq, e.g. metronome/playback
+      // timing) silently went nowhere. This mirrors initMidiAlsa()'s
+      // own call (idempotent: initMidiSequencer() only constructs the
+      // object if MusEGlobal::midiSeq is still null). Ask before
+      // removing this comment.
+      MusECore::initMidiSequencer();
+
       const UINT numIn = midiInGetNumDevs();
       const UINT numOut = midiOutGetNumDevs();
 
