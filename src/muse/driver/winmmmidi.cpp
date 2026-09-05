@@ -116,6 +116,12 @@ void CALLBACK MidiWinMMDevice::midiInProc(HMIDIIN handle, UINT msg, DWORD_PTR in
       if(!dev || !dev->_rawInEvents)
         return;
 
+      // WINMM_MIDI_INPUT_DEBUG: temporary tracing for the "no MIDI input
+      // signal" investigation (build6 did not fix it). Ask before removing.
+      if(MusEGlobal::debugMsg)
+        fprintf(stderr, "WINMM_MIDI_INPUT_DEBUG: midiInProc fired for <%s> msg=0x%x\n",
+                dev->name().toLocal8Bit().constData(), (unsigned int)msg);
+
       if(msg == MIM_DATA)
       {
         WinMMRawInEvent ev;
@@ -178,7 +184,12 @@ bool MidiWinMMDevice::openIn()
       if(midiInPrepareHeader(_inHandle, &_sysexInHdr, sizeof(MIDIHDR)) == MMSYSERR_NOERROR)
         midiInAddBuffer(_inHandle, &_sysexInHdr, sizeof(MIDIHDR));
 
-      midiInStart(_inHandle);
+      MMRESULT startRv = midiInStart(_inHandle);
+      // WINMM_MIDI_INPUT_DEBUG: temporary tracing, see midiInProc(). Ask before removing.
+      if(MusEGlobal::debugMsg)
+        fprintf(stderr, "WINMM_MIDI_INPUT_DEBUG: openIn <%s> deviceId=%u midiInOpen=OK midiInStart=%u wakeupFds=(%d,%d)\n",
+                name().toLocal8Bit().constData(), (unsigned int)_inDeviceId, (unsigned int)startRv,
+                _wakeupFds[0], _wakeupFds[1]);
       return true;
       }
 
@@ -281,6 +292,11 @@ void MidiWinMMDevice::processInput()
       char buf[64];
       while(muse_pipe_read(_wakeupFds[0], buf, sizeof(buf)) > 0)
         ;
+
+      // WINMM_MIDI_INPUT_DEBUG: temporary tracing, see midiInProc(). Ask before removing.
+      if(MusEGlobal::debugMsg)
+        fprintf(stderr, "WINMM_MIDI_INPUT_DEBUG: processInput() called for <%s>\n",
+                name().toLocal8Bit().constData());
 
       WinMMRawInEvent raw;
       while(_rawInEvents->get(raw))

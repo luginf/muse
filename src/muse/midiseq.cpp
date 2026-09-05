@@ -378,11 +378,23 @@ void MidiSeq::updatePollFd()
       for (iMidiDevice imd = MusEGlobal::midiDevices.begin(); imd != MusEGlobal::midiDevices.end(); ++imd) {
             MidiDevice* dev = *imd;
             int port = dev->midiPort();
+            // WINMM_MIDI_INPUT_DEBUG: temporary tracing for the "no MIDI
+            // input signal" investigation. Ask before removing.
+            if (MusEGlobal::debugMsg)
+                  fprintf(stderr, "WINMM_MIDI_INPUT_DEBUG: updatePollFd: device <%s> port=%d rwFlags=%d\n",
+                          dev->name().toLocal8Bit().constData(), port, dev->rwFlags());
             if (port == -1)
                   continue;
             if ((dev->rwFlags() & 0x2) || (MusEGlobal::extSyncFlag
                && (MusEGlobal::midiPorts[port].syncInfo().MCIn())))
+                  {
+                  // WINMM_MIDI_INPUT_DEBUG: temporary tracing for the "no MIDI
+                  // input signal" investigation. Ask before removing.
+                  if (MusEGlobal::debugMsg)
+                        fprintf(stderr, "WINMM_MIDI_INPUT_DEBUG: updatePollFd: registering <%s> port=%d rfd=%d rwFlags=%d\n",
+                                dev->name().toLocal8Bit().constData(), port, dev->selectRfd(), dev->rwFlags());
                   addPollFd(dev->selectRfd(), POLLIN, MusECore::midiRead, this, dev);
+                  }
             if (dev->bytesToWrite())
                   addPollFd(dev->selectWfd(), POLLOUT, MusECore::midiWrite, this, dev);
             }
