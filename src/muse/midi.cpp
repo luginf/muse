@@ -3014,6 +3014,7 @@ void Audio::processMidi(unsigned int frames)
 
           case MidiDevice::JACK_MIDI:
           case MidiDevice::SYNTH_MIDI:
+          case MidiDevice::WINMM_MIDI:
             // The frame is not used by these devices but we pass it along anyway.
             // Only ALSA devices need the frame.
             pl_md->processMidi(syncFrame);

@@ -1830,6 +1830,7 @@ void Audio::abortRolling()
 
           case MidiDevice::JACK_MIDI:
           case MidiDevice::SYNTH_MIDI:
+          case MidiDevice::WINMM_MIDI:
             md->handleStop();
           break;
         }
@@ -1890,6 +1891,7 @@ void Audio::stopRolling()
 
           case MidiDevice::JACK_MIDI:
           case MidiDevice::SYNTH_MIDI:
+          case MidiDevice::WINMM_MIDI:
             md->handleStop();
           break;
         }

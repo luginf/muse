@@ -1209,6 +1209,10 @@ void MPConfig::deviceSelectionChanged()
       case MusECore::MidiDevice::SYNTH_MIDI:
         can_remove = true;
       break;
+
+      case MusECore::MidiDevice::WINMM_MIDI:
+        can_remove = true;
+      break;
     }
 
     // Optimize: No need to check further.
@@ -1545,6 +1549,7 @@ void MPConfig::removeInstanceClicked()
           break;
       // Fall through.
       case MusECore::MidiDevice::JACK_MIDI:
+      case MusECore::MidiDevice::WINMM_MIDI:
         if(!isIdle)
         {
           MusEGlobal::audio->msgIdle(true); // Make it safe to edit structures
@@ -1585,6 +1590,7 @@ void MPConfig::removeInstanceClicked()
     {
       case MusECore::MidiDevice::ALSA_MIDI:
       case MusECore::MidiDevice::JACK_MIDI:
+      case MusECore::MidiDevice::WINMM_MIDI:
       break;
 
       case MusECore::MidiDevice::SYNTH_MIDI:

@@ -152,6 +152,7 @@ void MidiSeq::processStop()
 
       case MidiDevice::JACK_MIDI:
       case MidiDevice::SYNTH_MIDI:
+      case MidiDevice::WINMM_MIDI:
       break;
     }
   }
@@ -180,6 +181,7 @@ void MidiSeq::processSeek()
 
       case MidiDevice::JACK_MIDI:
       case MidiDevice::SYNTH_MIDI:
+      case MidiDevice::WINMM_MIDI:
       break;
     }
   }
@@ -621,6 +623,7 @@ void MidiSeq::processTimerTick()
 
           case MidiDevice::JACK_MIDI:
           case MidiDevice::SYNTH_MIDI:
+          case MidiDevice::WINMM_MIDI:
           break;
         }
       }
