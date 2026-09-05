@@ -1956,9 +1956,17 @@ void Audio::recordStop(bool restart, Undo* ops)
             //    resolve NoteOff events, Controller etc.
             //---------------------------------------------------
 
+            // WINMM_RECORD_DEBUG: temporary tracing for the "notes vanish
+            // on record-stop" investigation. Ask before removing.
+            if(MusEGlobal::debugMsg)
+              fprintf(stderr, "WINMM_RECORD_DEBUG: recordStop track <%s> mpevents.size()=%zu before buildMidiEventList\n",
+                      mt->name().toLocal8Bit().constData(), mt->mpevents.size());
             // Do SysexMeta. Do loops.
             buildMidiEventList(&mt->events, mt->mpevents, mt, MusEGlobal::config.division, true, true);
-            MusEGlobal::song->cmdAddRecordedEvents(mt, mt->events, 
+            if(MusEGlobal::debugMsg)
+              fprintf(stderr, "WINMM_RECORD_DEBUG: recordStop track <%s> events.size()=%zu after buildMidiEventList\n",
+                      mt->name().toLocal8Bit().constData(), mt->events.size());
+            MusEGlobal::song->cmdAddRecordedEvents(mt, mt->events,
                  MusEGlobal::extSyncFlag ? startExternalRecTick : startRecordPos.tick(),
                  operations);
             mt->events.clear();    // ** Driver should not be touching this right now.

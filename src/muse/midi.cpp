@@ -2221,6 +2221,13 @@ void Audio::processMidi(unsigned int frames)
                           MidiRecFifo *rf = dev->recordEvents(channel);
 
                           int count = dev->tmpRecordCount(channel);
+                          // WINMM_RECORD_DEBUG: temporary tracing for the
+                          // "notes vanish on record-stop" investigation.
+                          // Ask before removing.
+                          if(MusEGlobal::debugMsg && count > 0)
+                            fprintf(stderr, "WINMM_RECORD_DEBUG: processMidi track <%s> dev <%s> channel %d count=%d track_rec_flag=%d track_rec_monitor=%d recording=%d\n",
+                                    track->name().toLocal8Bit().constData(), dev->name().toLocal8Bit().constData(),
+                                    channel, count, track_rec_flag, track_rec_monitor, recording);
                           for(int i = 0; i < count; ++i)
                           {
                                 MidiRecordEvent event(rf->peek(i));
@@ -2595,9 +2602,16 @@ void Audio::processMidi(unsigned int frames)
                                   track->setActivity(event.dataB());
                               }
 
+                              // WINMM_RECORD_DEBUG: temporary tracing for the
+                              // "notes vanish on record-stop" investigation.
+                              // Ask before removing.
+                              if(MusEGlobal::debugMsg)
+                                fprintf(stderr, "WINMM_RECORD_DEBUG: processMidi track <%s> record-gate recording=%d song_record=%d extsync=%d track_rec_flag=%d\n",
+                                        track->name().toLocal8Bit().constData(), recording,
+                                        MusEGlobal::song->record(), extsync, track_rec_flag);
                               // Is the transport recording, or, is it about to be from external sync?
-                              if((recording || 
-                                 (MusEGlobal::song->record() && extsync && MusEGlobal::midiSyncContainer.isPlaying())) 
+                              if((recording ||
+                                 (MusEGlobal::song->record() && extsync && MusEGlobal::midiSyncContainer.isPlaying()))
                                  && track_rec_flag)
                               {
                                     unsigned int et = event.time();
@@ -2607,7 +2621,7 @@ void Audio::processMidi(unsigned int frames)
                                       const unsigned int xt = extClockHistoryFrame2Tick(event.time());
                                       DEBUG_MIDI(stderr, "processMidi: event time:%d dataA:%d dataB:%d curTickPos:%u set time:%u\n",
                                                       event.time(), event.dataA(), event.dataB(), curTickPos, xt);
-                                      
+
                                       event.setTime(xt);
                                     }
                                     else
