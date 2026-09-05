@@ -86,7 +86,10 @@
 // For debugging metronome and precount output: Uncomment the fprintf section.
 #define DEBUG_MIDI_METRONOME(dev, format, args...) // fprintf(dev, format, ##args);
 // For debugging midi timing: Uncomment the fprintf section.
-#define DEBUG_TRANSPORT_SYNC(dev, format, args...) // fprintf(dev, format, ##args);
+// TEMPORARY: enabled alongside AUDIOPREFETCH_DEBUG (audioprefetch.cpp) to
+// diagnose a Windows-only report of record/transport hanging ~20-30s
+// then starting without actually recording. Ask before removing.
+#define DEBUG_TRANSPORT_SYNC(dev, format, args...) fprintf(dev, format, ##args);
 
 namespace MusEGlobal {
 MusECore::Audio* audio = nullptr;
