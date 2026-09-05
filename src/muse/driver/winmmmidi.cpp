@@ -140,11 +140,37 @@ void CALLBACK MidiWinMMDevice::midiInProc(HMIDIIN handle, UINT msg, DWORD_PTR in
           ev.sysex.assign(hdr->lpData, hdr->lpData + hdr->dwBytesRecorded);
           dev->_rawInEvents->put(ev);
         }
+        // WINMM_MIDI_INPUT_DEBUG: temporary tracing, see openIn(). Ask
+        // before removing. Logged BEFORE the dwBytesRecorded reset
+        // below so it shows exactly what triggered this callback.
+        if(MusEGlobal::debugMsg)
+          fprintf(stderr, "WINMM_MIDI_INPUT_DEBUG: MIM_LONGDATA <%s> dwBytesRecorded=%lu dwFlags=0x%lx\n",
+                  dev->name().toLocal8Bit().constData(),
+                  (unsigned long)(hdr ? hdr->dwBytesRecorded : 0),
+                  (unsigned long)(hdr ? hdr->dwFlags : 0));
         // Re-queue the SAME buffer for the next chunk - it stays
         // "prepared" across multiple midiInAddBuffer() calls (no need
         // to call midiInPrepareHeader() again), and calling
         // midiInAddBuffer() from within the callback itself is
-        // documented as safe.
+        // documented as safe. dwBytesRecorded MUST be reset first -
+        // Microsoft's own MIDI recording sample does this - otherwise
+        // the header is handed back with the previous cycle's stale
+        // byte count still set, and at least some class-compliant
+        // USB-MIDI drivers (confirmed: this is what was happening with
+        // the user's CASIO keyboard) treat that as an already-complete
+        // buffer and re-fire MIM_LONGDATA again almost immediately,
+        // in a tight loop (measured: ~23000 MIM_LONGDATA callbacks in
+        // under a minute, for a session where only ~38 real MIM_DATA
+        // short messages - actual notes - were ever received). Beyond
+        // just wasting CPU, every one of those spurious callbacks
+        // called _rawInEvents->put(), and that fifo is a fixed-size
+        // (256) ring buffer whose put() DROPS new entries once full
+        // rather than overwriting old ones - so this flood was also
+        // capable of silently discarding real note-on/off events
+        // sitting behind it in the queue, independent of the separate
+        // "MidiSeq thread never started" bug.
+        if(hdr)
+          hdr->dwBytesRecorded = 0;
         if(dev->_inHandle)
           midiInAddBuffer(dev->_inHandle, hdr, sizeof(MIDIHDR));
       }
