@@ -156,19 +156,55 @@ void Thread::start(int prio, void* ptr)
 
 void Thread::stop(bool force)
       {
+      (void)force;
       if (thread == 0)
             return;
-      if (force) {
-            pthread_cancel(thread);
-            threadStop();
-            }
       _running = false;
+      // Wake the thread out of a possibly-indefinite poll() wait (_pollWait
+      // can be -1) so it notices _running is now false and returns from
+      // loop() normally, which then calls threadStop() itself (as it always
+      // did at the bottom of the while(_running) loop).
+      // This replaces a previous pthread_cancel()-based wakeup: Windows
+      // debug logging (MinGW/winpthreads) showed that cancelling a thread
+      // blocked in poll() left the *reused* message pipe unable to signal
+      // POLLIN again on the next start() of the same Thread object (e.g.
+      // AudioPrefetch after a project reload) - the seek acknowledgement
+      // was sent but never seen, hanging transport sync for the full
+      // setSyncTimeout() and explaining both silent recording and silent
+      // metronome playback reports. A self-pipe wakeup is the standard way
+      // to interrupt a poll() loop and avoids cancellation entirely, on
+      // every platform. Ask before removing this comment.
+      char c = 'x';
+      muse_pipe_write(stopFdw, &c, 1);
       if (thread) {
           if (pthread_join(thread, 0)) {
                 // perror("Failed to join sequencer thread"); DELETETHIS and the if around?
                 }
           }
       }
+
+//---------------------------------------------------------
+//   clearPollFd
+//---------------------------------------------------------
+
+void Thread::clearPollFd()
+      {
+      plist.clear();
+      npfd = 0;
+      addPollFd(stopFdr, POLLIN, stopWakeHandler, this, 0);
+      }
+
+//---------------------------------------------------------
+//   stopWakeHandler
+//---------------------------------------------------------
+
+void Thread::stopWakeHandler(void* p, void*)
+      {
+      Thread* t = (Thread*)p;
+      char c;
+      muse_pipe_read(t->stopFdr, &c, 1);
+      }
+
 //---------------------------------------------------------
 //   Thread
 //    prio = 0    no realtime scheduling
@@ -202,6 +238,13 @@ Thread::Thread(const char* s)
             }
       fromThreadFdr = filedes[0];
       fromThreadFdw = filedes[1];
+
+      if (muse_pipe(filedes) == -1) {
+            perror("thread: creating pipe");
+            exit(-1);
+            }
+      stopFdr = filedes[0];
+      stopFdw = filedes[1];
 
 //      pthread_mutexattr_t mutexattr; DELETETHIS 5
 //      pthread_mutexattr_init(&mutexattr);
